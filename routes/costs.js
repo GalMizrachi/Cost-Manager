@@ -1,11 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const Cost = require('../models/cost');
-//const User = require('../models/user');
+const express = require('express'); // Import the Express framework
+const router = express.Router(); // Create an Express router instance
+const Cost = require('../models/cost'); // Import the Cost model
+//const User = require('../models/user'); // Uncomment if you need to use the User model
 
+// Route: Add a new cost
 router.post('/add', async (req, res) => {
     try {
         const { userid, sum, category, description } = req.body;
+
+        // Validate that 'userid' is provided
         if (!userid) {
             return res.status(400).json({
                 error: 'Bad Request',
@@ -13,9 +16,7 @@ router.post('/add', async (req, res) => {
             });
         }
 
-        // בדיקה אם המשתמש קיים במערכת
-
-        // בדיקה אם חסרים שדות חיוניים
+        // Validate that required fields are provided
         if (!sum || !category || !description) {
             return res.status(400).json({
                 error: 'Bad Request',
@@ -23,11 +24,11 @@ router.post('/add', async (req, res) => {
             });
         }
 
-        // יצירת ושמירת ההוצאה החדשה
+        // Create and save the new cost entry
         const cost = new Cost({ userid, sum, category, description });
         const savedCost = await cost.save();
 
-        // החזרת תשובת 200 עם הנתונים שנשמרו
+        // Return a success response with the saved data
         return res.status(200).json(savedCost);
 
     } catch (err) {
@@ -39,13 +40,12 @@ router.post('/add', async (req, res) => {
     }
 });
 
-
-// דוח חודשי
+// Route: Get a monthly cost report
 router.get('/report', async (req, res) => {
     try {
         const { id, year, month } = req.query;
 
-        // לוודא שהפרמטרים לא חסרים
+        // Validate query parameters
         if (!id) {
             return res.status(400).json({
                 error: 'Bad Request',
@@ -69,9 +69,11 @@ router.get('/report', async (req, res) => {
 
         console.log('Query Parameters:', { id, year, month });
 
-        const startDate = new Date(year, month - 1, 1); // תחילת החודש
-        const endDate = new Date(year, month, 0, 23, 59, 59, 999); // סיום החודש (יום האחרון)
+        // Define the date range for the given month
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
+        // Aggregate cost data for the given user and month
         const costs = await Cost.aggregate([
             {
                 $match: {
@@ -84,42 +86,45 @@ router.get('/report', async (req, res) => {
             },
             {
                 $group: {
-                    _id: { category: '$category', day: { $dayOfMonth: '$date' } }, // קיבוץ לפי קטגוריה ויום
-                    items: { $push: { sum: '$sum', description: '$description', day: { $dayOfMonth: '$date' } } }, // הוספת פרטי ההוצאה עם יום
+                    _id: { category: '$category' },
+                    items: { $push: { sum: '$sum', description: '$description', day: { $dayOfMonth: '$date' } } }
                 },
             },
             {
-                $sort: { '_id.day': 1 }, // למיין לפי יום
+                $sort: { '_id.category': 1 },
             }
         ]);
 
         console.log('Aggregation Results:', costs);
 
-        if (!costs || costs.length === 0) {
-                return res.status(200).json({ costs: [] });
-        }
+        // ✅ List of supported cost categories
+        const categories = ["food", "health", "housing", "sport", "education"];
 
-        // עיבוד הנתונים למבנה המיוחל
-        const report = [];
+        // Initialize a report structure with all categories
+        let report = categories.map(category => ({
+            [category]: []
+        }));
 
+        // Populate the report with data from the database
         costs.forEach(cost => {
-            // מוצאים אם כבר קיימת קטגוריה בדוח
-            let category = report.find(r => r[cost._id.category]);
-
-            if (!category) {
-                category = { [cost._id.category]: [] };
-                report.push(category);
-            }
-
-            cost.items.forEach(item => {
-                category[cost._id.category].push({
+            const category = report.find(r => Object.keys(r)[0] === cost._id.category);
+            if (category) {
+                category[cost._id.category] = cost.items.map(item => ({
                     sum: item.sum,
                     description: item.description,
-                    day: item.day,
-                });
-            });
+                    day: item.day
+                }));
+            }
         });
 
+        // ✅ Sort the report so that empty categories appear last
+        report.sort((a, b) => {
+            const aValues = Object.values(a)[0].length;
+            const bValues = Object.values(b)[0].length;
+            return aValues === 0 ? 1 : bValues === 0 ? -1 : 0;
+        });
+
+        // Send the final response with the formatted report
         res.status(200).json({
             userid: parseInt(id),
             year: parseInt(year),
@@ -136,4 +141,5 @@ router.get('/report', async (req, res) => {
     }
 });
 
+// Export the router to make it available for use in other parts of the application
 module.exports = router;

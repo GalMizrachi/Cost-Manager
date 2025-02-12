@@ -1,35 +1,41 @@
-const request = require('supertest');
-const app = require('../index');
+const request = require('supertest'); // Import Supertest for API testing
+const app = require('../index'); // Import the main application file
 
 describe('Report API Endpoints', () => {
-    // בדיקה: קבלת דוח חודשי
-    it('should return monthly report for a user', async () => {
+
+    // Test: Fetching a monthly report for a user
+    it('should return a monthly report for a user', async () => {
         const response = await request(app)
             .get('/api/report')
-            .query({ id: '1', year: '2025', month: '2' });
+            .query({ id: '1', year: '2025', month: '2' }); // Requesting a report for February 2025
 
-        expect(response.status).toBe(200);
-        expect(response.body).toHaveProperty('costs');
-        expect(response.body.costs).toBeInstanceOf(Array);
+        // Validate response
+        expect(response.status).toBe(200); // Ensure status is 200 (OK)
+        expect(response.body).toHaveProperty('costs'); // Response should contain a 'costs' field
+        expect(response.body.costs).toBeInstanceOf(Array); // 'costs' should be an array
     });
 
-    // בדיקה: דוח חודשי ללא נתונים
-    it('should return empty costs array if no data found', async () => {
+    // Test: Monthly report when no data is found
+    it('should return an empty costs array if no data is found', async () => {
         const response = await request(app)
             .get('/api/report')
-            .query({ id: '1', year: '2024', month: '12' }); // משתמש שאין לו נתונים
+            .query({ id: '1', year: '2024', month: '12' }); // Requesting a report for a user with no data
 
-        expect(response.status).toBe(200);
-        expect(response.body).toHaveProperty('costs');
-        expect(response.body.costs.length).toBe(0);
+        // Validate response
+        expect(response.status).toBe(200); // Ensure status is 200 (OK)
+        expect(response.body).toHaveProperty('costs'); // Response should contain a 'costs' field
+        expect(response.body.costs.length).toBe(5); // 'costs' should be an array of 5 empty arrays.
+
     });
 
-    // בדיקה: דוח חודשי ללא פרמטרים
+    // Test: Requesting a report without required parameters
     it('should return 400 if parameters are missing', async () => {
         const response = await request(app)
-            .get('/api/report');
+            .get('/api/report'); // No query parameters provided
 
-        expect(response.status).toBe(400);
-        expect(response.body.error).toBe('Bad Request');
+        // Validate response
+        expect(response.status).toBe(400); // Ensure status is 400 (Bad Request)
+        expect(response.body.error).toBe('Bad Request'); // Ensure error message is returned
     });
+
 });

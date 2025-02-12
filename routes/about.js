@@ -1,7 +1,7 @@
-const express = require('express');
-const router = express.Router();
+const express = require('express'); // Import the Express framework
+const router = express.Router(); // Create an Express router instance
 
-// פרטי הצוות
+// Route: Get team member details
 router.get('/about', (req, res) => {
     res.json([
         {
@@ -21,4 +21,5 @@ router.get('/about', (req, res) => {
     ]);
 });
 
+// Export the router to make it available for use in other parts of the application
 module.exports = router;
